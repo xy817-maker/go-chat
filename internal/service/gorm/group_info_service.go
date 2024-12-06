@@ -1,12 +1,12 @@
 package gorm
 
 import (
+	"errors"
+	"gorm.io/gorm"
 	"kama_chat_server/internal/dao"
 	"kama_chat_server/internal/dto/request"
 	"kama_chat_server/internal/model"
 	"kama_chat_server/pkg/zlog"
-	"errors"
-	"gorm.io/gorm"
 	"time"
 )
 
@@ -117,11 +117,11 @@ func (g *groupInfoService) GetGroupInfo(userId string, groupId string) (model.Gr
 //func (g *groupInfoService) checkUserAndGroupValid(userId string, groupId string)
 
 // GetGroupInfo4Chat 获取聊天会话群聊详情
-func (g *groupInfoService) GetGroupInfo4Chat() error {
-
-}
+//func (g *groupInfoService) GetGroupInfo4Chat() error {
+//
+//}
 
 // LeaveGroup 退群
-func (g *groupInfoService) LeaveGroup(userId string, groupId string) error {
-	if userId == 
-}
+//func (g *groupInfoService) LeaveGroup(userId string, groupId string) error {
+//	if userId ==
+//}
