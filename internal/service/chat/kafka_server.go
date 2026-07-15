@@ -399,7 +399,49 @@ func (k *KafkaServer) Start() {
 					CreatedAt:  time.Now(),
 					AVdata:     chatMessageReq.AVdata,
 				}
-				if avData.MessageId == "PROXY" && (avData.Type == "start_call" || avData.Type == "receive_call" || avData.Type == "reject_call") {
+				// 通话状态管理：忙线判断
+				if avData.MessageId == "PROXY" {
+					if avData.Type == "start_call" {
+						// 检查忙线：主叫或被叫正在通话中
+						if CallState.IsBusy(message.SendId) || CallState.IsBusy(message.ReceiveId) {
+							zlog.Info(fmt.Sprintf("忙线拒绝：%s → %s", message.SendId, message.ReceiveId))
+							// 返回忙线拒绝给发起方
+							rejectRsp := respond.AVMessageRespond{
+								SendId:     message.ReceiveId,
+								SendName:   "",
+								SendAvatar: "",
+								ReceiveId:  message.SendId,
+								Type:       message.Type,
+								Content:    "",
+								Url:        "",
+								FileSize:   "",
+								FileName:   "",
+								FileType:   "",
+								CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
+								AVdata:     `{"messageId":"PROXY","type":"reject_call","reason":"busy"}`,
+							}
+							rejectMsg, _ := json.Marshal(rejectRsp)
+							k.mutex.Lock()
+							if sendClient, ok := k.Clients[message.SendId]; ok {
+								sendClient.SendBack <- &MessageBack{Message: rejectMsg, Uuid: message.Uuid}
+							}
+							k.mutex.Unlock()
+							continue // 不转发，跳过后续逻辑
+						}
+						// 双方空闲，记录通话状态
+						if err := CallState.StartCall(message.SendId, message.ReceiveId); err != nil {
+							continue // 忙线，不转发
+						}
+					} else if avData.Type == "receive_call" {
+						// 对方接听，状态更新为 in_call
+						CallState.AcceptCall(message.SendId, message.ReceiveId)
+					} else if avData.Type == "reject_call" || avData.Type == "end_call" {
+						// 拒绝或挂断，清除通话状态
+						CallState.RejectCall(message.SendId, message.ReceiveId)
+					}
+				}
+
+				if avData.MessageId == "PROXY" && (avData.Type == "start_call" || avData.Type == "receive_call" || avData.Type == "reject_call" || avData.Type == "end_call") {
 					// 存message
 					// 对SendAvatar去除前面/static之前的所有内容，防止ip前缀引入
 					message.SendAvatar = normalizePath(message.SendAvatar)

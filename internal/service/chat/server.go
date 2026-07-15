@@ -23,11 +23,12 @@ import (
 )
 
 type Server struct {
-	Clients  map[string]*Client
-	mutex    *sync.Mutex
-	Transmit chan []byte  // 转发通道
-	Login    chan *Client // 登录通道
-	Logout   chan *Client // 退出登录通道
+	Clients    map[string]*Client
+	mutex      *sync.Mutex
+	Transmit   chan []byte  // 转发通道
+	Login      chan *Client // 登录通道
+	Logout     chan *Client // 退出登录通道
+	closeOnce  sync.Once
 }
 
 var ChatServer *Server
@@ -61,15 +62,13 @@ func normalizePath(path string) string {
 
 // Start 启动函数，Server端用主进程起，Client端可以用协程起
 func (s *Server) Start() {
-	defer func() {
-		close(s.Transmit)
-		close(s.Logout)
-		close(s.Login)
-	}()
 	for {
 		select {
 		case client := <-s.Login:
 			{
+				if client == nil {
+					return
+				}
 				s.mutex.Lock()
 				s.Clients[client.Uuid] = client
 				s.mutex.Unlock()
@@ -82,6 +81,9 @@ func (s *Server) Start() {
 
 		case client := <-s.Logout:
 			{
+				if client == nil {
+					return
+				}
 				s.mutex.Lock()
 				delete(s.Clients, client.Uuid)
 				s.mutex.Unlock()
@@ -93,6 +95,9 @@ func (s *Server) Start() {
 
 		case data := <-s.Transmit:
 			{
+				if data == nil {
+					return
+				}
 				var chatMessageReq request.ChatMessageRequest
 				if err := json.Unmarshal(data, &chatMessageReq); err != nil {
 					zlog.Error(err.Error())
@@ -422,7 +427,49 @@ func (s *Server) Start() {
 						CreatedAt:  time.Now(),
 						AVdata:     chatMessageReq.AVdata,
 					}
-					if avData.MessageId == "PROXY" && (avData.Type == "start_call" || avData.Type == "receive_call" || avData.Type == "reject_call") {
+					// 通话状态管理：忙线判断
+					if avData.MessageId == "PROXY" {
+						if avData.Type == "start_call" {
+							// 检查忙线：主叫或被叫正在通话中
+							if CallState.IsBusy(message.SendId) || CallState.IsBusy(message.ReceiveId) {
+								zlog.Info(fmt.Sprintf("忙线拒绝：%s → %s", message.SendId, message.ReceiveId))
+								// 返回忙线拒绝给发起方
+								rejectRsp := respond.AVMessageRespond{
+									SendId:     message.ReceiveId,
+									SendName:   "",
+									SendAvatar: "",
+									ReceiveId:  message.SendId,
+									Type:       message.Type,
+									Content:    "",
+									Url:        "",
+									FileSize:   "",
+									FileName:   "",
+									FileType:   "",
+									CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
+									AVdata:     `{"messageId":"PROXY","type":"reject_call","reason":"busy"}`,
+								}
+								rejectMsg, _ := json.Marshal(rejectRsp)
+								s.mutex.Lock()
+								if sendClient, ok := s.Clients[message.SendId]; ok {
+									sendClient.SendBack <- &MessageBack{Message: rejectMsg, Uuid: message.Uuid}
+								}
+								s.mutex.Unlock()
+								continue // 不转发，跳过后续逻辑
+							}
+							// 双方空闲，记录通话状态
+							if err := CallState.StartCall(message.SendId, message.ReceiveId); err != nil {
+								continue // 忙线，不转发
+							}
+						} else if avData.Type == "receive_call" {
+							// 对方接听，状态更新为 in_call
+							CallState.AcceptCall(message.SendId, message.ReceiveId)
+						} else if avData.Type == "reject_call" || avData.Type == "end_call" {
+							// 拒绝或挂断，清除通话状态
+							CallState.RejectCall(message.SendId, message.ReceiveId)
+						}
+					}
+
+					if avData.MessageId == "PROXY" && (avData.Type == "start_call" || avData.Type == "receive_call" || avData.Type == "reject_call" || avData.Type == "end_call") {
 						// 存message
 						// 对SendAvatar去除前面/static之前的所有内容，防止ip前缀引入
 						message.SendAvatar = normalizePath(message.SendAvatar)
@@ -478,9 +525,11 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Close() {
-	close(s.Login)
-	close(s.Logout)
-	close(s.Transmit)
+	s.closeOnce.Do(func() {
+		close(s.Login)
+		close(s.Logout)
+		close(s.Transmit)
+	})
 }
 
 func (s *Server) SendClientToLogin(client *Client) {
