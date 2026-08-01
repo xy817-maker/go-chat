@@ -8,7 +8,7 @@ host = "127.0.0.1"
 port = 3306
 user = "root"
 password = "123456"
-databaseName = "your database name"
+databaseName = "kamachat"
 
 [redisConfig]
 host = "127.0.0.1"
@@ -23,17 +23,22 @@ signName = "阿里云短信测试"
 templateCode = "SMS_154950909"
 
 [logConfig]
-logPath = "your log path"
+logPath = "logs/app.log"
 
-[kafkaConfig]
-messageMode = "channel"# 消息模式 channel or kafka
-hostPort = "127.0.0.1:9092" # "127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094" 多个kafka服务器
+[messageQueueConfig]
+messageMode = "rocketmq" # 消息模式 channel or rocketmq
+hostPort = "127.0.0.1:9876" # RocketMQ NameServer 地址
+groupName = "chat_group" # 消费组名称
 loginTopic = "login"
 chatTopic = "chat_message"
 logoutTopic = "logout"
-partition = 0 # kafka partition
+partition = 0 # 兼容字段，RocketMQ 不使用
 timeout = 1 # 单位秒
 
 [staticSrcConfig]
 staticAvatarPath = "./static/avatars"
 staticFilePath = "./static/files"
+
+[rateLimitConfig]
+rps = 5.0 # 每秒令牌数（按 IP）
+burst = 10 # 令牌桶容量

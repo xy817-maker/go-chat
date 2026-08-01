@@ -5,7 +5,7 @@ import (
 	"kama_chat_server/internal/config"
 	"kama_chat_server/internal/https_server"
 	"kama_chat_server/internal/service/chat"
-	"kama_chat_server/internal/service/kafka"
+	"kama_chat_server/internal/service/mq"
 	myredis "kama_chat_server/internal/service/redis"
 	"kama_chat_server/pkg/zlog"
 	"os"
@@ -17,25 +17,22 @@ func main() {
 	conf := config.GetConfig()
 	host := conf.MainConfig.Host
 	port := conf.MainConfig.Port
-	kafkaConfig := conf.KafkaConfig
-	if kafkaConfig.MessageMode == "kafka" {
-		kafka.KafkaService.KafkaInit()
+	mqConfig := conf.MessageQueueConfig
+	if mqConfig.MessageMode == "rocketmq" {
+		// 先注入分发函数，再初始化 MQ：consumer 回调中将调用它回到 chat 包，避免循环依赖
+		mq.Dispatch = chat.MQChatServer.DispatchMessage
+		mq.MQService.MQInit()
 	}
 
-	if kafkaConfig.MessageMode == "channel" {
+	if mqConfig.MessageMode == "channel" {
 		go chat.ChatServer.Start()
 	} else {
-		go chat.KafkaChatServer.Start()
+		go chat.MQChatServer.Start()
 	}
 
 	go func() {
-		// Win10本地部署
-		// if err := https_server.GE.RunTLS(fmt.Sprintf("%s:%d", host, port), "pkg/ssl/127.0.0.1+2.pem", "pkg/ssl/127.0.0.1+2-key.pem"); err != nil {
-		// 	zlog.Fatal("server running fault")
-		// 	return
-		// }
-		// Ubuntu22.04云服务器部署
-		if err := https_server.GE.RunTLS(fmt.Sprintf("%s:%d", host, port), "/etc/ssl/certs/server.crt", "/etc/ssl/private/server.key"); err != nil {
+		// 本地开发使用 HTTP
+		if err := https_server.GE.Run(fmt.Sprintf("%s:%d", host, port)); err != nil {
 			zlog.Fatal("server running fault")
 			return
 		}
@@ -48,8 +45,8 @@ func main() {
 	// 等待信号
 	<-quit
 
-	if kafkaConfig.MessageMode == "kafka" {
-		kafka.KafkaService.KafkaClose()
+	if mqConfig.MessageMode == "rocketmq" {
+		mq.MQService.MQClose()
 	}
 
 	chat.ChatServer.Close()

@@ -38,13 +38,14 @@ type LogConfig struct {
 	LogPath string `toml:"logPath"`
 }
 
-type KafkaConfig struct {
-	MessageMode string        `toml:"messageMode"`
-	HostPort    string        `toml:"hostPort"`
+type MessageQueueConfig struct {
+	MessageMode string        `toml:"messageMode"` // channel or rocketmq
+	HostPort    string        `toml:"hostPort"`    // RocketMQ NameServer 地址
+	GroupName   string        `toml:"groupName"`
 	LoginTopic  string        `toml:"loginTopic"`
 	LogoutTopic string        `toml:"logoutTopic"`
 	ChatTopic   string        `toml:"chatTopic"`
-	Partition   int           `toml:"partition"`
+	Partition   int           `toml:"partition"` // 兼容字段，RocketMQ 不使用
 	Timeout     time.Duration `toml:"timeout"`
 }
 
@@ -53,14 +54,20 @@ type StaticSrcConfig struct {
 	StaticFilePath   string `toml:"staticFilePath"`
 }
 
+type RateLimitConfig struct {
+	Rps   float64 `toml:"rps"`   // 每秒令牌数（按 IP）
+	Burst int     `toml:"burst"` // 令牌桶容量
+}
+
 type Config struct {
-	MainConfig      `toml:"mainConfig"`
-	MysqlConfig     `toml:"mysqlConfig"`
-	RedisConfig     `toml:"redisConfig"`
-	AuthCodeConfig  `toml:"authCodeConfig"`
-	LogConfig       `toml:"logConfig"`
-	KafkaConfig     `toml:"kafkaConfig"`
-	StaticSrcConfig `toml:"staticSrcConfig"`
+	MainConfig         `toml:"mainConfig"`
+	MysqlConfig        `toml:"mysqlConfig"`
+	RedisConfig        `toml:"redisConfig"`
+	AuthCodeConfig     `toml:"authCodeConfig"`
+	LogConfig          `toml:"logConfig"`
+	MessageQueueConfig `toml:"messageQueueConfig"`
+	StaticSrcConfig    `toml:"staticSrcConfig"`
+	RateLimitConfig    `toml:"rateLimitConfig"`
 }
 
 var config *Config
@@ -71,8 +78,8 @@ func LoadConfig() error {
 	// 	log.Fatal(err.Error())
 	// 	return err
 	// }
-	// Ubuntu22.04云服务器部署
-	if _, err := toml.DecodeFile("/root/project/KamaChat/configs/config_local.toml", config); err != nil {
+	// 本地部署
+	if _, err := toml.DecodeFile("configs/config.toml", config); err != nil {
 		log.Fatal(err.Error())
 		return err
 	}

@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "kama_chat_server/api/v1"
 	"kama_chat_server/internal/config"
-	"kama_chat_server/pkg/ssl"
 )
 
 var GE *gin.Engine
@@ -17,9 +16,13 @@ func init() {
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	GE.Use(cors.New(corsConfig))
-	GE.Use(ssl.TlsHandler(config.GetConfig().MainConfig.Host, config.GetConfig().MainConfig.Port))
-	GE.Static("/static/avatars", config.GetConfig().StaticAvatarPath)
-	GE.Static("/static/files", config.GetConfig().StaticFilePath)
+	// 本地开发禁用 HTTPS 跳转
+	// GE.Use(ssl.TlsHandler(config.GetConfig().MainConfig.Host, config.GetConfig().MainConfig.Port))
+	// 静态资源走 /static 路由组，挂载按 IP 令牌桶限流中间件
+	static := GE.Group("/static")
+	static.Use(RateLimitMiddleware())
+	static.Static("/avatars", config.GetConfig().StaticAvatarPath)
+	static.Static("/files", config.GetConfig().StaticFilePath)
 	GE.POST("/login", v1.Login)
 	GE.POST("/register", v1.Register)
 	GE.POST("/user/updateUserInfo", v1.UpdateUserInfo)

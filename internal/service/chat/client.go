@@ -1,22 +1,19 @@
 package chat
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/segmentio/kafka-go"
 	"kama_chat_server/internal/config"
 	"kama_chat_server/internal/dao"
 	"kama_chat_server/internal/dto/request"
 	"kama_chat_server/internal/model"
-	myKafka "kama_chat_server/internal/service/kafka"
+	"kama_chat_server/internal/service/mq"
 	"kama_chat_server/pkg/constants"
 	"kama_chat_server/pkg/enum/message/message_status_enum"
 	"kama_chat_server/pkg/zlog"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 type MessageBack struct {
@@ -40,9 +37,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var ctx = context.Background()
-
-var messageMode = config.GetConfig().KafkaConfig.MessageMode
+var messageMode = config.GetConfig().MessageQueueConfig.MessageMode
 
 // 读取websocket消息并发送给send通道
 func (c *Client) Read() {
@@ -72,19 +67,14 @@ func (c *Client) Read() {
 					// 如果server满了，直接塞sendto
 					c.SendTo <- jsonMessage
 				} else {
-					// 否则考虑加宽channel size，或者使用kafka
+					// 否则考虑加宽channel size，或者使用rocketmq
 					if err := c.Conn.WriteMessage(websocket.TextMessage, []byte("由于目前同一时间过多用户发送消息，消息发送失败，请稍后重试")); err != nil {
 						zlog.Error(err.Error())
 					}
 				}
 			} else {
-				if err := myKafka.KafkaService.ChatWriter.WriteMessages(ctx, kafka.Message{
-					Key:   []byte(strconv.Itoa(config.GetConfig().KafkaConfig.Partition)),
-					Value: jsonMessage,
-				}); err != nil {
-					zlog.Error(err.Error())
-				}
-				zlog.Info("已发送消息：" + string(jsonMessage))
+				// RocketMQ 模式：生产消息到 chat topic，由 consumer 消费后分发
+				mq.MQService.SendMessage(jsonMessage)
 			}
 		}
 	}
@@ -110,7 +100,7 @@ func (c *Client) Write() {
 
 // NewClientInit 当接受到前端有登录消息时，会调用该函数
 func NewClientInit(c *gin.Context, clientId string) {
-	kafkaConfig := config.GetConfig().KafkaConfig
+	mqConfig := config.GetConfig().MessageQueueConfig
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		zlog.Error(err.Error())
@@ -121,10 +111,10 @@ func NewClientInit(c *gin.Context, clientId string) {
 		SendTo:   make(chan []byte, constants.CHANNEL_SIZE),
 		SendBack: make(chan *MessageBack, constants.CHANNEL_SIZE),
 	}
-	if kafkaConfig.MessageMode == "channel" {
+	if mqConfig.MessageMode == "channel" {
 		ChatServer.SendClientToLogin(client)
 	} else {
-		KafkaChatServer.SendClientToLogin(client)
+		MQChatServer.SendClientToLogin(client)
 	}
 	go client.Read()
 	go client.Write()
@@ -133,13 +123,13 @@ func NewClientInit(c *gin.Context, clientId string) {
 
 // ClientLogout 当接受到前端有登出消息时，会调用该函数
 func ClientLogout(clientId string) (string, int) {
-	kafkaConfig := config.GetConfig().KafkaConfig
+	mqConfig := config.GetConfig().MessageQueueConfig
 	client := ChatServer.Clients[clientId]
 	if client != nil {
-		if kafkaConfig.MessageMode == "channel" {
+		if mqConfig.MessageMode == "channel" {
 			ChatServer.SendClientToLogout(client)
 		} else {
-			KafkaChatServer.SendClientToLogout(client)
+			MQChatServer.SendClientToLogout(client)
 		}
 		if err := client.Conn.Close(); err != nil {
 			zlog.Error(err.Error())

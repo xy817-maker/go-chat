@@ -2,12 +2,14 @@ package v1
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"kama_chat_server/internal/dto/request"
 	"kama_chat_server/internal/service/gorm"
 	"kama_chat_server/pkg/constants"
 	"kama_chat_server/pkg/zlog"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // Register 注册
@@ -37,11 +39,14 @@ func Login(c *gin.Context) {
 		})
 		return
 	}
+	zlog.Info("用户尝试登录", zap.String("telephone", loginReq.Telephone))
 	message, userInfo, ret := gorm.UserInfoService.Login(loginReq)
+	zlog.Info("登录结果", zap.Int("ret", ret), zap.String("message", message))
 	JsonBack(c, message, ret, userInfo)
 }
 
 // SmsLogin 验证码登录
+
 func SmsLogin(c *gin.Context) {
 	var req request.SmsLoginRequest
 	if err := c.BindJSON(&req); err != nil {

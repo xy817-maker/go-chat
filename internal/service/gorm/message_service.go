@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"io"
 	"kama_chat_server/internal/config"
 	"kama_chat_server/internal/dao"
@@ -16,6 +14,10 @@ import (
 	"kama_chat_server/pkg/zlog"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 )
 
 type messageService struct {
@@ -51,13 +53,13 @@ func (m *messageService) GetMessageList(userOneId, userTwoId string) (string, []
 					CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
 				})
 			}
-			//rspString, err := json.Marshal(rspList)
-			//if err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			//if err := myredis.SetKeyEx("message_list_"+userOneId+"_"+userTwoId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
-			//	zlog.Error(err.Error())
-			//}
+			rspString, err := json.Marshal(rspList)
+			if err != nil {
+				zlog.Error(err.Error())
+			}
+			if err := myredis.SetKeyEx("message_list_"+userOneId+"_"+userTwoId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
+				zlog.Error(err.Error())
+			}
 			return "获取聊天记录成功", rspList, 0
 		} else {
 			zlog.Error(err.Error())
