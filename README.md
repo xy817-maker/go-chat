@@ -1,135 +1,159 @@
-# 分布式部署的仿微信项目KamaChat
-
-> **本项目目前只在[知识星球](https://programmercarl.com/other/kstar.html)答疑并维护**。
-
-这次发布一个非常硬核的Go项目，分布式部署的仿微信项目：KamaChat
-
-越来越多的大厂开始在核心业务中采用 Go 语言，例如在云计算、分布式系统、微服务架构等领域，Go 语言都有着出色的表现。
-
-其实我从24年就开始规划Go的项目，现在这个项目终于打磨好了。
-
-这个项目整个前后端代码加起来有1.5w行（前后端分离），是一个功能非常庞大的项目。
-
-如果对前后端有了解的同学，主要是理解业务流程，每天抽5h，应该在一个月左右能完全掌握这个项目。
-
-如果对go、vue都不太熟悉，对前后端这种api调用方式不太熟悉，可能还需要提前大概去走一遍go和vue，具体时间得看你学基础的耗时，建议通过ai来快速学习。
-
-在开发这个项目，工时大约在200h-300h左右（**相当于24小时都在工作，干了十天**）。
-
-## 涉及技术面广
-
-此项目构建了一个**全面且复杂的即时通讯系统**，前后端融合了广泛的技术体系，深入研究各个技术模块，能让人对即时通讯领域形成系统而完整的认知。
-
-下面将详细阐述各个技术板块及其具体实现功能：
-
-1、 **后台开发者管理**
-
-这一模块赋予后台开发者强大的管理权限，主要用于对用户群聊和用户角色进行管控。
-
-开发者可以对用户群聊执行禁用、启用和删除操作，以确保群聊的正常秩序和合规性。同时，开发者还能根据实际需求，将普通用户设置为管理员，协助进行系统管理。
-
-2、**类似聊天软件的联系人体系**
-
-该体系模拟了常见聊天软件的联系人管理功能，为用户提供了丰富的社交互动选项。
-
-用户可以自由添加或删除联系人，还能对联系人进行拉黑操作。
-
-当用户想要添加新联系人时，可以发起申请，对方则有权选择同意或拒绝该申请。
-
-3、 **单聊与群聊**
-
-单聊和群聊是即时通讯系统的核心功能之一，其实现依赖于后端的聊天服务器。
-
-无论是单聊消息还是群聊消息，都会被发送到后端服务器，由服务器负责将消息准确无误地转发给相应的接收方。
-
-4、 **多种消息类型的上传和下载（文本、文件、视频**）
-
-系统支持多种类型的消息交互，包括文本、文件和视频。用户可以方便地上传和下载这些不同类型的消息，满足多样化的沟通需求。
-
-5、 **Kafka**
-
-Kafka 在项目中扮演着消息传输的重要角色。
-
-它作为一个高效的消息队列系统，负责将客户端（client）发送的消息转发到服务器（server），确保消息的可靠传输和处理。
-
-6、 **语音视频通话**
-
-语音视频通话功能为用户提供了更加直观和实时的沟通方式。
-
-用户可以发起通话邀请，对方可以选择接受或拒绝邀请。在通话过程中，任何一方都可以随时挂断通话，结束交流。
-
-7、 **WebSocket**
-
-WebSocket 为前端和客户端之间建立了实时、双向的通信连接。
-
-它负责接收前端发送给客户端的消息，并将客户端的消息传递给服务器，实现了消息的高效传输和即时响应。
-
-通过参与这个项目，对上述每个技术点进行深入钻研，开发者可以全面了解即时通讯系统的架构、原理和实现细节，从而在该领域积累丰富的经验和技能。
-
-## 系统展示
-
-单聊：
-
-以下我只放了部分视频演示，该项目的各个部分都是视频演示，共计三十多个视频展示：
-
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-28-59.jpg)
-
-更多视频展示 可以在项目专栏的【项目展示以及测试】观看
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-29-34.jpg)
-
-## KamaChat项目精讲
-
-该项目的专栏是[知识星球](https://programmercarl.com/other/kstar.html)录友专享的。
-
-项目专栏依然是将 「简历写法」给大家列出来了，大家学完就可以参考这个来写简历：
-
-![image](https://file1.kamacoder.com/i/web/20250407103128.png)
-
-做完该项目，面试中大概率会有哪些面试问题，以及如何回答，也列出好了。
-
-面试问题，都是星球录友那这个项目面试遇到的实际问题：
-
-![image](https://file1.kamacoder.com/i/web/20250407103212.png)
-
-专栏中的项目面试题都掌握的话，这个项目在面试中基本没问题。
-
-很多录友在做项目的时候，把项目运行起来 就是第一大难点！
-
-本项目运行起来 需要依赖的环境很多，所以我给大家准备的 自动化环境配置脚本， **项目运行环境，一键配置！ 不需要大家去处理环境问题了**：
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-32-49.jpg)
-
-环境自动配置脚本执行中：
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-33-20.jpg)
-
-如果大家想进一步优化这个项目，这里给出可以深挖的点：
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-33-47.jpg)
-
-
-
-后端开发详细设计：包含 建表、日志库、架构、业务开发、群聊、后台管理、消息管理、管理员、文件上传下载、音视频通话等等：
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-43-10.jpg)
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-43-42.jpg)
-
-前端开发详细设计：
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-44-10.jpg)
-
-![image](https://file1.kamacoder.com/i/web/2025-08-18_12-44-34.jpg)
-
-## 答疑
-
-本项目在[知识星球](https://programmercarl.com/other/kstar.html)里为 文字专栏形式，大家不用担心，看不懂，星球里每个项目有专属答疑群，任何问题都可以在群里问，都会得到解答：
-
-![](https://file1.kamacoder.com/i/web/2025-09-26_11-30-13.jpg)
-
-
-## 获取本项目专栏
-
-**本文档仅为星球内部专享，大家可以加入[知识星球](./kstar.md)里获取，在星球置顶一**
-
+# KamaChat - 分布式即时通讯系统
+
+基于 **Go + Vue 3** 前后端分离构建的仿微信即时通讯系统，支持单聊群聊、多种消息类型、语音视频通话与后台管理，通过 RocketMQ 消息路由支持分布式部署，核心链路覆盖消息可靠传输、连接管理与会话缓存。
+
+## 功能特性
+
+- **账号体系**：账号密码注册登录、阿里云短信验证码登录，密码 AES 加密存储
+- **联系人体系**：好友申请/通过/拒绝、联系人删除、拉黑与解除拉黑
+- **单聊与群聊**：会话创建与管理，消息由服务端转发，支持群成员管理、解散群、多种加群模式
+- **多种消息类型**：文本、文件、视频、语音消息的上传下载，头像与静态资源服务
+- **语音视频通话**：通话邀请/接受/拒绝/挂断，基于信令的通话状态管理与忙线拒绝
+- **实时推送**：WebSocket 长连接，消息经消息队列在多服务节点间路由转发
+- **后台管理**：用户禁用/启用/删除、设置管理员、群聊管控
+- **稳定性**：静态资源令牌桶限流、Redis 缓存会话与消息列表、channel/RocketMQ 双消息路由模式
+
+## 架构概览
+
+```mermaid
+flowchart TB
+    User["用户 / 浏览器"] --> FE["web/chat-server<br/>Vue 3 + Element Plus"]
+    FE -->|HTTP /api| API["Gin HTTP Server :8000<br/>CORS / 限流 / 静态资源"]
+    FE -->|WebSocket /wss| WS["Chat Server<br/>gorilla/websocket 长连接"]
+
+    API --> SVC["Service 层<br/>user / contact / group / session / message"]
+    WS --> SVC
+
+    SVC --> MQ["消息路由层（双模式）<br/>channel 单机 / RocketMQ 分布式"]
+    MQ -->|login / chat_message / logout topic| WS2["其他 Chat Server 节点<br/>分布式部署时跨节点转发"]
+
+    SVC --> REDIS[("Redis<br/>会话与消息列表缓存")]
+    SVC --> MYSQL[("MySQL via GORM<br/>用户 / 群组 / 联系人 / 消息")]
+    SVC --> SMS["阿里云 SMS<br/>短信验证码"]
+```
+
+## 技术栈
+
+| 维度 | 技术 | 说明 |
+|------|------|------|
+| 语言 | Go 1.20+ | 后端开发语言 |
+| Web 框架 | Gin | HTTP API + WebSocket（/wss 端点） |
+| ORM | GORM + MySQL | 数据建模与自动迁移（6 张核心表） |
+| 缓存 | Redis | 消息列表 / 会话缓存 |
+| 消息队列 | RocketMQ / channel | **双消息路由模式**：单机部署用 channel 内存通道，分布式部署用 RocketMQ 跨节点转发 |
+| 实时通信 | gorilla/websocket | 长连接与消息推送 |
+| 日志 | zap + lumberjack | 结构化日志与滚动切分 |
+| 安全 | AES + unrolled/secure + 令牌桶 | 密码加密、HTTPS 安全头、IP 限流 |
+| 短信 | 阿里云 dysmsapi | 验证码登录 |
+| 前端 | Vue 3 + Vuex + Vue Router + Element Plus | 前端 SPA，Axios 请求 |
+
+## 快速开始
+
+### 1. 准备环境
+
+- Go 1.20+
+- Node.js 16+
+- MySQL 8.0（创建数据库 `kamachat`，表结构由 GORM 启动时自动迁移）
+- Redis
+- RocketMQ（可选：单机体验可直接用 `channel` 模式，无需部署 MQ）
+
+### 2. 修改配置
+
+编辑 `configs/config.toml`：
+
+```toml
+[mysqlConfig]
+host = "127.0.0.1"
+port = 3306
+user = "root"
+password = "你的密码"
+databaseName = "kamachat"
+
+[redisConfig]
+host = "127.0.0.1"
+port = 6379
+
+[messageQueueConfig]
+messageMode = "channel"   # 单机体验用 channel；分布式部署改 rocketmq
+hostPort = "127.0.0.1:9876"  # RocketMQ NameServer 地址
+
+[authCodeConfig]
+accessKeyID = "阿里云 accessKeyID"       # 不需要短信登录可留空占位
+accessKeySecret = "阿里云 accessKeySecret"
+```
+
+### 3. 启动后端
+
+```bash
+go mod tidy
+go run cmd/kama_chat_server/main.go
+# 服务监听 :8000，HTTP API 与 WebSocket(/wss) 同端口
+# 首次启动 GORM 自动建表：user_info / group_info / user_contact / session / contact_apply / message
+```
+
+### 4. 启动前端
+
+```bash
+cd web/chat-server
+npm install
+npm run serve
+# 本地开发默认端口见 vue.config.js 的 devServer 配置
+```
+
+浏览器访问前端地址，注册账号登录即可使用。
+
+## 常用命令
+
+```bash
+# 后端编译
+go build -o kama_chat_backend cmd/kama_chat_server/main.go
+
+# 前端构建生产包
+cd web/chat-server && npm run build
+
+# 后端测试
+go test ./...
+```
+
+## 目录结构
+
+```
+KamaChat/
+├── cmd/kama_chat_server/    # 后端启动入口
+├── configs/                 # 配置文件（config.toml）
+├── api/v1/                  # Controller 层（请求解析与响应封装）
+├── internal/
+│   ├── https_server/        # Gin 路由注册、CORS、令牌桶限流中间件
+│   ├── service/             # 业务层
+│   │   ├── gorm/            # 用户 / 群组 / 联系人 / 会话 / 消息服务
+│   │   ├── chat/            # WebSocket 服务与消息路由
+│   │   ├── redis/           # Redis 缓存
+│   │   ├── mq/              # RocketMQ 生产者与消费者
+│   │   ├── sms/             # 阿里云短信
+│   │   └── aes/             # AES 加解密
+│   ├── model/               # GORM 数据模型（6 张表）
+│   ├── dao/                 # 数据库连接与自动迁移
+│   ├── dto/                 # 请求 / 响应 DTO
+│   └── config/              # 配置加载
+├── pkg/                     # 工具包（zlog / constants / enum / ssl / util）
+├── test/                    # 测试
+└── web/chat-server/         # Vue 3 前端
+```
+
+## 配置重点
+
+| 配置段 | 作用 |
+|--------|------|
+| `mainConfig` | 服务监听地址与端口（默认 :8000） |
+| `mysqlConfig` / `redisConfig` | 数据库与缓存连接 |
+| `messageQueueConfig` | **`messageMode` 决定消息路由模式**：`channel`（单机内存通道）/ `rocketmq`（分布式转发）；RocketMQ 模式下配置 NameServer、消费组与 login/chat/logout 三个 topic |
+| `authCodeConfig` | 阿里云短信签名与模板（短信登录） |
+| `staticSrcConfig` | 头像与文件静态资源目录 |
+| `logConfig` | 日志路径（zap + lumberjack 滚动） |
+
+## 常见问题
+
+1. **消息模式怎么选？** 单机跑通功能用 `channel`，零依赖；要验证分布式转发或多节点部署再切 `rocketmq`，两种模式代码路径统一，切换只改配置。
+2. **不需要短信登录能跑吗？** 能。短信仅用于验证码登录，账号密码登录不受影响，`authCodeConfig` 留占位即可。
+3. **WebSocket 连接地址？** 与 HTTP 同端口，端点为 `/wss`，前端登录后建立长连接。
+4. **静态资源访问限流？** `/static` 路由组挂载了基于 IP 的令牌桶限流中间件，下载大文件不会被刷爆带宽。
