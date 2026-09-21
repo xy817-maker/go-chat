@@ -118,7 +118,7 @@ go test ./...
 ## 目录结构
 
 ```
-KamaChat/
+GoChat/
 ├── cmd/kama_chat_server/    # 后端启动入口
 ├── configs/                 # 配置文件（config.toml）
 ├── api/v1/                  # Controller 层（请求解析与响应封装）
