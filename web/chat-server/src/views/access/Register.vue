@@ -103,6 +103,7 @@ import axios from "axios";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useStore } from "vuex";
+import { startHeartbeat, stopHeartbeat, handlePong, isPongMessage } from "../../store";
 export default {
   name: "Register",
   setup() {
@@ -158,12 +159,15 @@ export default {
           store.state.socket = new WebSocket(wsUrl);
           store.state.socket.onopen = () => {
             console.log("WebSocket连接已打开");
+            startHeartbeat(store.state.socket, response.data.data.uuid);
           };
           store.state.socket.onmessage = (message) => {
+            if (isPongMessage(message.data)) { handlePong(); return; }
             console.log("收到消息：", message.data);
           };
           store.state.socket.onclose = () => {
             console.log("WebSocket连接已关闭");
+            stopHeartbeat();
           };
           store.state.socket.onerror = () => {
             console.log("WebSocket连接发生错误");

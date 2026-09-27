@@ -36,6 +36,19 @@ func normalizePath(path string) string {
 	return path[staticIndex:]
 }
 
+// trySend 非阻塞地向客户端推送消息：通道满则跳过本次实时推送（消息已落库，客户端可拉取补回），
+// 避免慢连接阻塞分发协程、导致故障扩散。对 nil 客户端（离线）安全。
+func trySend(c *Client, msg *MessageBack) {
+	if c == nil {
+		return
+	}
+	select {
+	case c.SendBack <- msg:
+	default:
+		zlog.Info(fmt.Sprintf("用户 %s 推送通道已满，跳过本次实时推送，待其拉取补回", c.Uuid))
+	}
+}
+
 // dispatchChatMessage 处理一条聊天消息：落库 -> 在线转发 -> Redis 缓存。
 // channel 与 RocketMQ 两种传输模式共享此逻辑，避免双份重复实现。
 // clients/mu 由调用方（channel 模式的 Server 或 RocketMQ 模式的 MQServer）传入。
@@ -166,14 +179,8 @@ func dispatchChatMessage(data []byte, clients map[string]*Client, mu *sync.Mutex
 			}
 			mu.Lock()
 			for _, member := range members {
-				if member != message.SendId {
-					if receiveClient, ok := clients[member]; ok {
-						receiveClient.SendBack <- messageBack
-					}
-				} else {
-					sendClient := clients[message.SendId]
-					sendClient.SendBack <- messageBack
-				}
+				// 在线成员非阻塞推送（成员含发送方，自然完成回显）；离线或通道满则跳过，消息已落库、上线拉取补回
+				trySend(clients[member], messageBack)
 			}
 			mu.Unlock()
 
@@ -316,14 +323,8 @@ func dispatchChatMessage(data []byte, clients map[string]*Client, mu *sync.Mutex
 			}
 			mu.Lock()
 			for _, member := range members {
-				if member != message.SendId {
-					if receiveClient, ok := clients[member]; ok {
-						receiveClient.SendBack <- messageBack
-					}
-				} else {
-					sendClient := clients[message.SendId]
-					sendClient.SendBack <- messageBack
-				}
+				// 在线成员非阻塞推送（成员含发送方，自然完成回显）；离线或通道满则跳过，消息已落库、上线拉取补回
+				trySend(clients[member], messageBack)
 			}
 			mu.Unlock()
 
@@ -412,6 +413,25 @@ func dispatchChatMessage(data []byte, clients map[string]*Client, mu *sync.Mutex
 				// 拒绝或挂断，清除通话状态
 				CallState.RejectCall(message.SendId, message.ReceiveId)
 			}
+		}
+
+		// 正常挂断（PEER_LEAVE）或 end_call：清理服务端通话状态，并向发起方回 ACK
+		if avData.MessageId == "PEER_LEAVE" ||
+			(avData.MessageId == "PROXY" && avData.Type == "end_call") {
+			CallState.EndCall(message.SendId)
+			ackRsp := respond.AVMessageRespond{
+				SendId:    message.ReceiveId,
+				ReceiveId: message.SendId,
+				Type:      message.Type,
+				CreatedAt: message.CreatedAt.Format("2006-01-02 15:04:05"),
+				AVdata:    `{"messageId":"CALL_ACK","type":"end_ack"}`,
+			}
+			ackMsg, _ := json.Marshal(ackRsp)
+			mu.Lock()
+			if sendClient, ok := clients[message.SendId]; ok {
+				sendClient.SendBack <- &MessageBack{Message: ackMsg}
+			}
+			mu.Unlock()
 		}
 
 		if avData.MessageId == "PROXY" && (avData.Type == "start_call" || avData.Type == "receive_call" || avData.Type == "reject_call" || avData.Type == "end_call") {

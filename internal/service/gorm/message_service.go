@@ -100,13 +100,14 @@ func (m *messageService) GetGroupMessageList(groupId string) (string, []respond.
 				}
 				rspList = append(rspList, rsp)
 			}
-			//rspString, err := json.Marshal(rspList)
-			//if err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			//if err := myredis.SetKeyEx("group_messagelist_"+groupId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
-			//	zlog.Error(err.Error())
-			//}
+			rspString, err := json.Marshal(rspList)
+			if err != nil {
+				zlog.Error(err.Error())
+			}
+			// 回源后回写缓存，后续打开群聊直接命中 Redis
+			if err := myredis.SetKeyEx("group_messagelist_"+groupId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
+				zlog.Error(err.Error())
+			}
 			return "获取聊天记录成功", rspList, 0
 		} else {
 			zlog.Error(err.Error())

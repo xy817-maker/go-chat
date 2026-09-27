@@ -944,6 +944,7 @@
 import { reactive, toRefs, onMounted, ref, nextTick } from "vue";
 import { useRouter, onBeforeRouteUpdate } from "vue-router";
 import { useStore } from "vuex";
+import { startHeartbeat, stopHeartbeat, handlePong, isPongMessage } from "../../../store";
 import axios from "axios";
 import Modal from "@/components/Modal.vue";
 import SmallModal from "@/components/SmallModal.vue";
@@ -1058,6 +1059,7 @@ export default {
       }
       console.log(data.sessionId);
       store.state.socket.onmessage = (jsonMessage) => {
+        if (isPongMessage(jsonMessage.data)) { handlePong(); return; }
         const message = JSON.parse(jsonMessage.data);
         if (message.type != 3) {
           if (
@@ -1122,6 +1124,8 @@ export default {
             } else {
               console.log("不支持的proxy类型");
             }
+          } else if (messageAVdata.messageId === "CALL_ACK") {
+            clearEndCallAckTimer();
           }
           console.log("收到消息：", message);
           if (data.messageList == null) {
@@ -1149,6 +1153,7 @@ export default {
         }
         console.log(data.sessionId);
         store.state.socket.onmessage = (jsonMessage) => {
+          if (isPongMessage(jsonMessage.data)) { handlePong(); return; }
           const message = JSON.parse(jsonMessage.data);
           if (message.type != 3) {
             if (
@@ -1214,6 +1219,8 @@ export default {
               } else {
                 console.log("不支持的proxy类型");
               }
+            } else if (messageAVdata.messageId === "CALL_ACK") {
+              clearEndCallAckTimer();
             }
             console.log("收到消息：", message);
             if (data.messageList == null) {
@@ -1950,11 +1957,18 @@ export default {
           store.state.socket.send(JSON.stringify(rtcMessageRequest));
         }
       };
-      data.rtcPeerConn.oniceconnectionstatechange = (event) => {
-        console.log(
-          "oniceconnectionstatechange",
-          data.rtcPeerConn.iceConnectionState
-        );
+      data.rtcPeerConn.oniceconnectionstatechange = () => {
+        const state = data.rtcPeerConn.iceConnectionState;
+        console.log("oniceconnectionstatechange", state);
+        if (state === "connected" || state === "completed") {
+          if (iceRecoverTimer) { clearTimeout(iceRecoverTimer); iceRecoverTimer = null; }
+        } else if (state === "disconnected") {
+          ElMessage.warning("网络连接不佳，正在尝试恢复...");
+          if (iceRecoverTimer) clearTimeout(iceRecoverTimer);
+          iceRecoverTimer = setTimeout(() => { handleConnectionLost(); }, 8000);
+        } else if (state === "failed" || state === "closed") {
+          handleConnectionLost();
+        }
       };
       // 对端传来媒体轨道
       data.rtcPeerConn.ontrack = (event) => {
@@ -2154,6 +2168,40 @@ export default {
       }
     };
 
+    // 挂断 ACK 等待/重试与 ICE 恢复计时
+    let endCallAckTimer = null;
+    let endCallRetries = 0;
+    let iceRecoverTimer = null;
+    const END_CALL_MAX_RETRIES = 3;
+    const END_CALL_ACK_TIMEOUT = 2000;
+
+    // buildEndCallRequest 构造挂断（PEER_LEAVE）信令报文
+    const buildEndCallRequest = () => {
+      var proxyPeerLeaveMessage = {
+        messageId: "PEER_LEAVE",
+      };
+      return {
+        session_id: data.sessionId,
+        type: 3,
+        content: "",
+        url: "",
+        send_id: data.userInfo.uuid,
+        send_name: data.userInfo.nickname,
+        send_avatar: data.userInfo.avatar,
+        receive_id: data.contactInfo.contact_id,
+        file_size: "",
+        file_name: "",
+        file_type: "",
+        av_data: JSON.stringify(proxyPeerLeaveMessage),
+      };
+    };
+
+    // clearEndCallAckTimer 停止 ACK 等待/重试计时
+    const clearEndCallAckTimer = () => {
+      if (endCallAckTimer) { clearTimeout(endCallAckTimer); endCallAckTimer = null; }
+      endCallRetries = 0;
+    };
+
     const sendEndCall = () => {
       if (data.localVideo == null && data.remoteVideo == null) {
         ElMessage.warning("尚未开始通话，无法挂断");
@@ -2169,24 +2217,47 @@ export default {
       data.remoteVideo = null;
       data.ableToReceiveOrRejectCall = false;
       data.ableToStartCall = true;
-      var proxyPeerLeaveMessage = {
-        messageId: "PEER_LEAVE",
+      // 发送挂断信令
+      const doSend = () => {
+        if (store.state.socket && store.state.socket.readyState === WebSocket.OPEN) {
+          store.state.socket.send(JSON.stringify(buildEndCallRequest()));
+        }
       };
-      const rtcMessageRequest = {
-        session_id: data.sessionId,
-        type: 3,
-        content: "",
-        url: "",
-        send_id: data.userInfo.uuid,
-        send_name: data.userInfo.nickname,
-        send_avatar: data.userInfo.avatar,
-        receive_id: data.contactInfo.contact_id,
-        file_size: "",
-        file_name: "",
-        file_type: "",
-        av_data: JSON.stringify(proxyPeerLeaveMessage),
+      doSend();
+      // 未收到 ACK 则重试；挂断/清理天然幂等，重复发送安全
+      endCallRetries = 0;
+      const waitAck = () => {
+        endCallAckTimer = setTimeout(() => {
+          if (endCallRetries < END_CALL_MAX_RETRIES) {
+            endCallRetries++;
+            doSend();
+            waitAck();
+          }
+        }, END_CALL_ACK_TIMEOUT);
       };
-      store.state.socket.send(JSON.stringify(rtcMessageRequest));
+      waitAck();
+    };
+
+    // handleConnectionLost 媒体通道断开（网络故障）时本地自动收尾，并尽力通知服务端
+    const handleConnectionLost = () => {
+      if (iceRecoverTimer) { clearTimeout(iceRecoverTimer); iceRecoverTimer = null; }
+      if (data.localVideo) data.localVideo.style.display = "none";
+      if (data.remoteVideo) data.remoteVideo.style.display = "none";
+      closeLocalMediaStream();
+      closeRtcPeerConnection();
+      data.remoteStream = null;
+      data.localStream = null;
+      data.localVideo = null;
+      data.remoteVideo = null;
+      data.ableToReceiveOrRejectCall = false;
+      data.ableToStartCall = true;
+      clearEndCallAckTimer();
+      ElMessage.error("网络连接已断开，通话结束");
+      try {
+        if (store.state.socket && store.state.socket.readyState === WebSocket.OPEN) {
+          store.state.socket.send(JSON.stringify(buildEndCallRequest()));
+        }
+      } catch (e) { /* ignore */ }
     };
 
     const endCall = () => {

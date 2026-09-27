@@ -5,6 +5,7 @@
 <script>
 import { onMounted } from "vue";
 import { useStore } from "vuex";
+import { startHeartbeat, stopHeartbeat, handlePong, isPongMessage } from "./store";
 import axios from "axios";
 export default {
   name: "App",
@@ -60,13 +61,16 @@ export default {
         store.state.socket = new WebSocket(wsUrl);
         store.state.socket.onopen = () => {
           console.log("WebSocket连接已打开");console.log("连接信令服务器成功");
+          startHeartbeat(store.state.socket, store.state.userInfo.uuid);
         };
         store.state.socket.onmessage = (message) => {
+          if (isPongMessage(message.data)) { handlePong(); return; }
           console.log("收到消息：", message.data);
         };
         store.state.socket.onclose = () => {
           console.log("WebSocket连接已关闭");
         console.log("连接信令服务器断开");
+        stopHeartbeat();
         };
         store.state.socket.onerror = () => {
           console.log("WebSocket连接发生错误");console.log("连接信令服务器失败，错误信息：", error);

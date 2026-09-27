@@ -53,6 +53,16 @@ func (c *Client) Read() {
 			if err := json.Unmarshal(jsonMessage, &message); err != nil {
 				zlog.Error(err.Error())
 			}
+			// 心跳报文：续期通话状态，通过 SendBack 由 Write 协程回 pong（避免并发写连接）
+			if message.Type == constants.HEARTBEAT_TYPE {
+				CallState.Heartbeat(message.SendId)
+				pong := &MessageBack{Message: []byte(`{"type":-1,"content":"pong"}`)}
+				select {
+				case c.SendBack <- pong:
+				default: // 缓冲已满则丢弃本次 pong，下个周期再探
+				}
+				continue
+			}
 			log.Println("接受到消息为: ", jsonMessage)
 			if messageMode == "channel" {
 				// 如果server的转发channel没满，先把sendto中的给transmit
@@ -68,8 +78,10 @@ func (c *Client) Read() {
 					c.SendTo <- jsonMessage
 				} else {
 					// 否则考虑加宽channel size，或者使用rocketmq
-					if err := c.Conn.WriteMessage(websocket.TextMessage, []byte("由于目前同一时间过多用户发送消息，消息发送失败，请稍后重试")); err != nil {
-						zlog.Error(err.Error())
+					// 通过 SendBack 由 Write 协程写回，避免与 Write 协程并发写连接
+					select {
+					case c.SendBack <- &MessageBack{Message: []byte("由于目前同一时间过多用户发送消息，消息发送失败，请稍后重试")}:
+					default:
 					}
 				}
 			} else {
@@ -91,9 +103,11 @@ func (c *Client) Write() {
 			return // 直接断开websocket
 		}
 		// log.Println("已发送消息：", messageBack.Message)
-		// 说明顺利发送，修改状态为已发送
-		if res := dao.GormDB.Model(&model.Message{}).Where("uuid = ?", messageBack.Uuid).Update("status", message_status_enum.Sent); res.Error != nil {
-			zlog.Error(res.Error.Error())
+		// 说明顺利发送，修改状态为已发送（ACK/pong 等无消息 ID 的报文跳过状态回写）
+		if messageBack.Uuid != "" {
+			if res := dao.GormDB.Model(&model.Message{}).Where("uuid = ?", messageBack.Uuid).Update("status", message_status_enum.Sent); res.Error != nil {
+				zlog.Error(res.Error.Error())
+			}
 		}
 	}
 }
