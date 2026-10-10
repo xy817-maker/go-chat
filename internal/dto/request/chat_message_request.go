@@ -1,7 +1,8 @@
 package request
 
 type ChatMessageRequest struct {
-	SessionId  string `json:"session_id"`
+	ClientMsgId string `json:"client_msg_id"`
+	SessionId   string `json:"session_id"`
 	Type       int8   `json:"type"`
 	Content    string `json:"content"`
 	Url        string `json:"url"`

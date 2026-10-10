@@ -5,12 +5,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"kama_chat_server/internal/config"
-	"kama_chat_server/internal/dao"
 	"kama_chat_server/internal/dto/request"
-	"kama_chat_server/internal/model"
 	"kama_chat_server/internal/service/mq"
 	"kama_chat_server/pkg/constants"
-	"kama_chat_server/pkg/enum/message/message_status_enum"
 	"kama_chat_server/pkg/zlog"
 	"log"
 	"net/http"
@@ -18,7 +15,6 @@ import (
 
 type MessageBack struct {
 	Message []byte
-	Uuid    string
 }
 
 type Client struct {
@@ -86,7 +82,17 @@ func (c *Client) Read() {
 				}
 			} else {
 				// RocketMQ 模式：生产消息到 chat topic，由 consumer 消费后分发
-				mq.MQService.SendMessage(jsonMessage)
+				// 解析消息获取 shardingKey，保证同一会话消息进入同一个 queue（顺序消息）
+				var chatMsg request.ChatMessageRequest
+				shardingKey := ""
+				if err := json.Unmarshal(jsonMessage, &chatMsg); err == nil && chatMsg.Type != 3 {
+					// 音视频信令(type=3)不需要顺序，不传 shardingKey，轮询发送
+					shardingKey = chatMsg.SessionId
+					if shardingKey == "" {
+						shardingKey = chatMsg.ReceiveId // 群聊 session_id 为空，用群ID
+					}
+				}
+				mq.MQService.SendMessage(jsonMessage, shardingKey)
 			}
 		}
 	}
@@ -101,13 +107,6 @@ func (c *Client) Write() {
 		if err != nil {
 			zlog.Error(err.Error())
 			return // 直接断开websocket
-		}
-		// log.Println("已发送消息：", messageBack.Message)
-		// 说明顺利发送，修改状态为已发送（ACK/pong 等无消息 ID 的报文跳过状态回写）
-		if messageBack.Uuid != "" {
-			if res := dao.GormDB.Model(&model.Message{}).Where("uuid = ?", messageBack.Uuid).Update("status", message_status_enum.Sent); res.Error != nil {
-				zlog.Error(res.Error.Error())
-			}
 		}
 	}
 }

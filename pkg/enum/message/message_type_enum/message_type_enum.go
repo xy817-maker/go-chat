@@ -8,4 +8,6 @@ const (
 	File
 	// 通话
 	AudioOrVideo
+	// 应用层ACK确认（服务端落库成功后回给发送方）
+	Ack
 )

@@ -37,8 +37,21 @@
                     :key="user.user_id"
                     @click="handleToChatUser(user)"
                   >
-                    <img :src="user.avatar" class="sessionlist-avatar" />
-                    {{ user.user_name }}
+                    <div style="display: flex; align-items: center; width: 100%;">
+                      <img :src="user.avatar" class="sessionlist-avatar" />
+                      <div style="flex: 1; margin-left: 8px; overflow: hidden;">
+                        <div style="font-size: 14px; color: #333;">{{ user.user_name }}</div>
+                        <div style="font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          {{ offlineDigestByContact[user.user_id]?.last_message || '' }}
+                        </div>
+                      </div>
+                      <div
+                        v-if="offlineDigestByContact[user.user_id]?.unread_count > 0"
+                        style="background: #f56c6c; color: #fff; border-radius: 10px; min-width: 18px; height: 18px; line-height: 18px; text-align: center; font-size: 11px; padding: 0 4px; margin-left: 8px;"
+                      >
+                        {{ offlineDigestByContact[user.user_id].unread_count > 99 ? '99+' : offlineDigestByContact[user.user_id].unread_count }}
+                      </div>
+                    </div>
                   </el-menu-item>
                 </el-menu>
                 <el-menu
@@ -57,8 +70,21 @@
                     :key="group.group_id"
                     @click="handleToChatGroup(group)"
                   >
-                    <img :src="group.avatar" class="sessionlist-avatar" />
-                    {{ group.group_name }}
+                    <div style="display: flex; align-items: center; width: 100%;">
+                      <img :src="group.avatar" class="sessionlist-avatar" />
+                      <div style="flex: 1; margin-left: 8px; overflow: hidden;">
+                        <div style="font-size: 14px; color: #333;">{{ group.group_name }}</div>
+                        <div style="font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                          {{ offlineDigestByGroup[group.group_id]?.last_message || '' }}
+                        </div>
+                      </div>
+                      <div
+                        v-if="offlineDigestByGroup[group.group_id]?.unread_count > 0"
+                        style="background: #f56c6c; color: #fff; border-radius: 10px; min-width: 18px; height: 18px; line-height: 18px; text-align: center; font-size: 11px; padding: 0 4px; margin-left: 8px;"
+                      >
+                        {{ offlineDigestByGroup[group.group_id].unread_count > 99 ? '99+' : offlineDigestByGroup[group.group_id].unread_count }}
+                      </div>
+                    </div>
                   </el-menu-item>
                 </el-menu>
               </div>
@@ -648,10 +674,12 @@
                             {{ messageItem.created_at }}
                           </div>
                         </div>
-                        <div style="display: flex; flex-direction: row-reverse">
+                        <div style="display: flex; flex-direction: row-reverse; align-items: center;">
                           <div class="right-message-content">
                             {{ messageItem.content }}
                           </div>
+                          <div v-if="messageItem._sendStatus === 'sending'" style="font-size: 12px; color: #999; margin-right: 8px;">发送中...</div>
+                          <div v-else-if="messageItem._sendStatus === 'failed'" style="font-size: 12px; color: #f56c6c; margin-right: 8px;">发送失败</div>
                         </div>
                       </div>
                     </div>
@@ -696,9 +724,10 @@
                               </div>
                             </div>
 
-                            <div class="right-message-file-download">
-                              已发送
+                            <div class="right-message-file-download" v-if="!messageItem._sendStatus || messageItem._sendStatus === 'sending'">
+                              {{ messageItem._sendStatus === 'sending' ? '发送中...' : '已发送' }}
                             </div>
+                            <div v-else-if="messageItem._sendStatus === 'failed'" style="font-size: 12px; color: #f56c6c; margin-top: 4px;">发送失败</div>
                           </div>
                         </div>
                       </div>
@@ -941,10 +970,10 @@
 </template>
 
 <script>
-import { reactive, toRefs, onMounted, ref, nextTick } from "vue";
+import { reactive, toRefs, onMounted, ref, nextTick, watch } from "vue";
 import { useRouter, onBeforeRouteUpdate } from "vue-router";
 import { useStore } from "vuex";
-import { startHeartbeat, stopHeartbeat, handlePong, isPongMessage } from "../../../store";
+import { startHeartbeat, stopHeartbeat, handlePong, isPongMessage, sendReliableMessage, handleAck, isAckMessage } from "../../../store";
 import axios from "axios";
 import Modal from "@/components/Modal.vue";
 import SmallModal from "@/components/SmallModal.vue";
@@ -1014,6 +1043,8 @@ export default {
       },
       userSessionList: [],
       groupSessionList: [],
+      offlineDigestByContact: {}, // 单聊离线摘要：key=对方用户ID
+      offlineDigestByGroup: {},   // 群聊离线摘要：key=群ID
       sessionId: "",
       messageList: [],
       innerRef: ref < HTMLDivElement > null,
@@ -1050,6 +1081,7 @@ export default {
     });
     //这是/chat/:id 的id改变时会调用
     onBeforeRouteUpdate(async (to, from, next) => {
+      loadOfflineDigest(); // 切换会话时刷新离线摘要
       await getChatContactInfo(to.params.id);
       await getSessionId(router.currentRoute.value.params.id);
       if (data.contactInfo.contact_id[0] == "U") {
@@ -1060,6 +1092,7 @@ export default {
       console.log(data.sessionId);
       store.state.socket.onmessage = (jsonMessage) => {
         if (isPongMessage(jsonMessage.data)) { handlePong(); return; }
+        if (isAckMessage(jsonMessage.data)) { handleAck(store, jsonMessage.data); return; }
         const message = JSON.parse(jsonMessage.data);
         if (message.type != 3) {
           if (
@@ -1143,6 +1176,7 @@ export default {
       try {
         /*  */
         console.log(router.currentRoute.value.params.id);
+        loadOfflineDigest(); // 上线拉取会话摘要（最后消息+未读数），异步执行不阻塞
         await getChatContactInfo(router.currentRoute.value.params.id);
         await getSessionId(router.currentRoute.value.params.id);
         console.log(data.contactInfo);
@@ -1154,7 +1188,9 @@ export default {
         console.log(data.sessionId);
         store.state.socket.onmessage = (jsonMessage) => {
           if (isPongMessage(jsonMessage.data)) { handlePong(); return; }
+          if (isAckMessage(jsonMessage.data)) { handleAck(store, jsonMessage.data); return; }
           const message = JSON.parse(jsonMessage.data);
+          updateUnreadDigest(message); // 实时更新会话列表未读数与最后消息
           if (message.type != 3) {
             if (
               // 群聊过来的消息，且当前会话是该群聊
@@ -1338,11 +1374,87 @@ export default {
     
 
     const handleToChatUser = async (user) => {
+      const digest = data.offlineDigestByContact[user.user_id];
+      if (digest && digest.session_id) {
+        await markSessionRead(digest.session_id);
+      }
       router.push("/chat/" + user.user_id);
     };
 
     const handleToChatGroup = async (group) => {
+      await markSessionRead(group.group_id);
       router.push("/chat/" + group.group_id);
+    };
+
+    // loadOfflineDigest 上线拉取所有会话摘要（最后消息 + 未读数）
+    const loadOfflineDigest = async () => {
+      try {
+        const rsp = await axios.post(
+          store.state.backendUrl + "/message/getOfflineDigest",
+          { user_id: data.userInfo.uuid }
+        );
+        const byContact = {};
+        const byGroup = {};
+        if (rsp.data.data) {
+          for (const item of rsp.data.data) {
+            if (item.contact_type === "U") {
+              byContact[item.contact_id] = item;
+            } else {
+              byGroup[item.session_id] = item;
+            }
+          }
+        }
+        data.offlineDigestByContact = byContact;
+        data.offlineDigestByGroup = byGroup;
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    // markSessionRead 标记会话已读（清除未读数）
+    const markSessionRead = async (sessionId) => {
+      try {
+        await axios.post(
+          store.state.backendUrl + "/message/markSessionRead",
+          { user_id: data.userInfo.uuid, session_id: sessionId }
+        );
+        // 本地清除未读数
+        for (const key of Object.keys(data.offlineDigestByContact)) {
+          if (data.offlineDigestByContact[key].session_id === sessionId) {
+            data.offlineDigestByContact[key].unread_count = 0;
+          }
+        }
+        if (data.offlineDigestByGroup[sessionId]) {
+          data.offlineDigestByGroup[sessionId].unread_count = 0;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    // updateUnreadDigest 收到实时消息时更新会话列表未读数与最后消息（当前在该会话页面则不更新）
+    const updateUnreadDigest = (message) => {
+      if (message.type === 3) return;
+      const inCurrentSession =
+        (message.receive_id && message.receive_id[0] === "G" && message.receive_id === data.contactInfo.contact_id) ||
+        (message.receive_id && message.receive_id[0] === "U" &&
+          (message.send_id === data.contactInfo.contact_id || message.receive_id === data.contactInfo.contact_id));
+      if (inCurrentSession) return;
+      const lastMsg = message.type === 2 ? "[文件] " + message.file_name : message.content;
+      if (message.receive_id && message.receive_id[0] === "U") {
+        const otherId = message.send_id === data.userInfo.uuid ? message.receive_id : message.send_id;
+        if (!data.offlineDigestByContact[otherId]) {
+          data.offlineDigestByContact[otherId] = { unread_count: 0, last_message: "" };
+        }
+        data.offlineDigestByContact[otherId].unread_count++;
+        data.offlineDigestByContact[otherId].last_message = lastMsg;
+      } else if (message.receive_id && message.receive_id[0] === "G") {
+        if (!data.offlineDigestByGroup[message.receive_id]) {
+          data.offlineDigestByGroup[message.receive_id] = { unread_count: 0, last_message: "" };
+        }
+        data.offlineDigestByGroup[message.receive_id].unread_count++;
+        data.offlineDigestByGroup[message.receive_id].last_message = lastMsg;
+      }
     };
 
     const handleShowUserSessionList = async () => {
@@ -1526,7 +1638,26 @@ export default {
         file_name: "",
         file_type: "",
       };
-      store.state.socket.send(JSON.stringify(chatMessageRequest));
+      const { clientMsgId } = sendReliableMessage(store, store.state.socket, chatMessageRequest);
+      if (clientMsgId) {
+        // 乐观回显：本地消息先插入列表，等服务端回显到达时替换
+        const localMsg = {
+          send_id: data.userInfo.uuid,
+          send_name: data.userInfo.nickname,
+          send_avatar: data.userInfo.avatar,
+          receive_id: data.contactInfo.contact_id,
+          type: 0,
+          content: data.chatMessage,
+          url: "",
+          file_size: getFileSize(0),
+          file_name: "",
+          file_type: "",
+          created_at: new Date().toLocaleString(),
+          _clientMsgId: clientMsgId,
+          _sendStatus: "sending",
+        };
+        data.messageList.push(localMsg);
+      }
       data.chatMessage = "";
       scrollToBottom();
     };
@@ -1546,7 +1677,25 @@ export default {
         file_type: data.fileList[0].type,
       };
       console.log(chatFileMessageRequest);
-      store.state.socket.send(JSON.stringify(chatFileMessageRequest));
+      const { clientMsgId } = sendReliableMessage(store, store.state.socket, chatFileMessageRequest);
+      if (clientMsgId) {
+        const localMsg = {
+          send_id: data.userInfo.uuid,
+          send_name: data.userInfo.nickname,
+          send_avatar: data.userInfo.avatar,
+          receive_id: data.contactInfo.contact_id,
+          type: 2,
+          content: "",
+          url: fileUrl,
+          file_size: getFileSize(data.fileList[0].size),
+          file_name: data.fileList[0].name,
+          file_type: data.fileList[0].type,
+          created_at: new Date().toLocaleString(),
+          _clientMsgId: clientMsgId,
+          _sendStatus: "sending",
+        };
+        data.messageList.push(localMsg);
+      }
       scrollToBottom();
     };
 
@@ -1565,14 +1714,49 @@ export default {
         file_type: data.avatarList[0].type,
       };
       console.log(chatAvatarMessageRequest);
-      store.state.socket.send(JSON.stringify(chatAvatarMessageRequest));
+      const { clientMsgId } = sendReliableMessage(store, store.state.socket, chatAvatarMessageRequest);
+      if (clientMsgId) {
+        const localMsg = {
+          send_id: data.userInfo.uuid,
+          send_name: data.userInfo.nickname,
+          send_avatar: data.userInfo.avatar,
+          receive_id: data.contactInfo.contact_id,
+          type: 2,
+          content: "",
+          url: avatarUrl,
+          file_size: getFileSize(data.avatarList[0].size),
+          file_name: data.avatarList[0].name,
+          file_type: data.avatarList[0].type,
+          created_at: new Date().toLocaleString(),
+          _clientMsgId: clientMsgId,
+          _sendStatus: "sending",
+        };
+        data.messageList.push(localMsg);
+      }
       scrollToBottom();
     };
+
+    // 监听消息发送状态变化，同步本地乐观回显消息的状态：
+    // sending=发送中；failed=发送失败；key 被删除（已收到服务端 ACK）=发送成功，清除状态
+    watch(() => store.state.messageSendStatus, (status) => {
+      for (const msg of data.messageList) {
+        if (!msg._clientMsgId) continue;
+        const s = status[msg._clientMsgId];
+        if (s === "failed") {
+          msg._sendStatus = "failed";
+        } else if (s === "sending") {
+          msg._sendStatus = "sending";
+        } else if (!s && msg._sendStatus === "sending") {
+          msg._sendStatus = ""; // 收到 ACK，发送成功，去掉“发送中...”
+        }
+      }
+    }, { deep: true });
 
     const getMessageList = async () => {
       try {
         console.log(data.contactInfo);
         const req = {
+          session_id: data.sessionId,
           user_one_id: data.userInfo.uuid,
           user_two_id: data.contactInfo.contact_id,
         };

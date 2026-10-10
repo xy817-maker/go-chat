@@ -63,8 +63,9 @@ func (k *MQServer) Start() {
 }
 
 // DispatchMessage 处理一条从 RocketMQ 消费到的消息，供 mq 包回调注入。
-func (k *MQServer) DispatchMessage(data []byte) {
-	dispatchChatMessage(data, k.Clients, k.mutex)
+// 返回 true=处理成功/无需重试；false=落库失败，触发 Broker 重试
+func (k *MQServer) DispatchMessage(data []byte) bool {
+	return dispatchChatMessage(data, k.Clients, k.mutex)
 }
 
 func (k *MQServer) Close() {

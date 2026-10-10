@@ -69,6 +69,8 @@ func init() {
 	GE.POST("/message/getGroupMessageList", v1.GetGroupMessageList)
 	GE.POST("/message/uploadAvatar", v1.UploadAvatar)
 	GE.POST("/message/uploadFile", v1.UploadFile)
+	GE.POST("/message/getOfflineDigest", v1.GetOfflineDigest)
+	GE.POST("/message/markSessionRead", v1.MarkSessionRead)
 	GE.POST("/chatroom/getCurContactListInChatRoom", v1.GetCurContactListInChatRoom)
 	GE.GET("/wss", v1.WsLogin)
 

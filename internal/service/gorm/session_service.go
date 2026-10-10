@@ -116,38 +116,46 @@ func (s *sessionService) CheckOpenSessionAllowed(sendId, receiveId string) (stri
 
 // DeleteSession 删除会话
 
-// OpenSession 打开会话
+// OpenSession 打开会话，返回会话ID。
+// 单聊(U)：会话在双方之间全局唯一——双向查找已存在的会话（A→B 或 B→A）并复用，
+//
+//	找不到才新建。保证 A、B 拿到同一个 sessionId，作为消息列表缓存的共享 key。
+//
+// 群聊(G)：每个成员各有一条“我与该群”的会话记录，按 (send_id, receive_id) 单向查找。
 func (s *sessionService) OpenSession(req request.OpenSessionRequest) (string, string, int) {
-	rspString, err := myredis.GetKeyWithPrefixNilIsErr("session_" + req.SendId + "_" + req.ReceiveId)
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			var session model.Session
-			if res := dao.GormDB.Where("send_id = ? and receive_id = ?", req.SendId, req.ReceiveId).First(&session); res.Error != nil {
-				if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-					zlog.Info("会话没有找到，将新建会话")
-					createReq := request.CreateSessionRequest{
-						SendId:    req.SendId,
-						ReceiveId: req.ReceiveId,
-					}
-					return s.CreateSession(createReq)
-				}
-			}
-			//rspString, err := json.Marshal(session)
-			//if err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			//if err := myredis.SetKeyEx("session_"+req.SendId+"_"+req.ReceiveId+"_"+session.Uuid, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			return "会话创建成功", session.Uuid, 0
-		} else {
-			zlog.Error(err.Error())
+	var session model.Session
+	if req.ReceiveId[0] == 'U' {
+		// 单聊：双向查找，取最早创建的一条，双方统一复用（兼容历史上已产生的重复会话）
+		res := dao.GormDB.
+			Where("(send_id = ? AND receive_id = ?) OR (send_id = ? AND receive_id = ?)",
+				req.SendId, req.ReceiveId, req.ReceiveId, req.SendId).
+			Order("created_at ASC").
+			First(&session)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			zlog.Info("单聊会话不存在，将新建会话")
+			return s.CreateSession(request.CreateSessionRequest{
+				SendId:    req.SendId,
+				ReceiveId: req.ReceiveId,
+			})
+		}
+		if res.Error != nil {
+			zlog.Error(res.Error.Error())
 			return constants.SYSTEM_ERROR, "", -1
 		}
-	}
-	var session model.Session
-	if err := json.Unmarshal([]byte(rspString), &session); err != nil {
-		zlog.Error(err.Error())
+	} else {
+		// 群聊：按个人方向查找
+		res := dao.GormDB.Where("send_id = ? and receive_id = ?", req.SendId, req.ReceiveId).First(&session)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			zlog.Info("群聊会话不存在，将新建会话")
+			return s.CreateSession(request.CreateSessionRequest{
+				SendId:    req.SendId,
+				ReceiveId: req.ReceiveId,
+			})
+		}
+		if res.Error != nil {
+			zlog.Error(res.Error.Error())
+			return constants.SYSTEM_ERROR, "", -1
+		}
 	}
 	return "会话创建成功", session.Uuid, 0
 }
