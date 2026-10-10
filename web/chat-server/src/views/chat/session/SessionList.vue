@@ -20,47 +20,51 @@
               />
             </div>
             <div class="contactlist-body">
-              <div class="contactlist-user">
-                <el-menu
-                  router
-                  unique-opened
-                  @open="handleShowUserSessionList"
-                  @close="handleHideUserSessionList"
+              <div class="session-section">
+                <div class="session-section-title">用户</div>
+                <div
+                  v-for="item in filteredUserList"
+                  :key="item.contact_id"
+                  class="session-item"
+                  @click="handleToChatUser(item)"
                 >
-                  <el-sub-menu index="1">
-                    <template #title>
-                      <span class="sessionlist-title">用户</span>
-                    </template>
-                  </el-sub-menu>
-                  <el-menu-item
-                    v-for="user in userSessionList"
-                    :key="user.user_id"
-                    @click="handleToChatUser(user)"
-                  >
-                    <img :src="user.avatar" class="sessionlist-avatar" />
-                    {{ user.user_name }}
-                  </el-menu-item>
-                </el-menu>
-                <el-menu
-                  router
-                  unique-opened
-                  @open="handleShowGroupSessionList"
-                  @close="handleHideGroupSessionList"
+                  <img :src="item.contact_avatar" class="sessionlist-avatar" />
+                  <div class="session-item-content">
+                    <div class="session-item-name">{{ item.contact_name }}</div>
+                    <div class="session-item-lastmsg">
+                      {{ item.last_message || "" }}
+                    </div>
+                  </div>
+                  <div v-if="item.unread_count > 0" class="session-item-badge">
+                    {{ item.unread_count > 99 ? "99+" : item.unread_count }}
+                  </div>
+                </div>
+                <div v-if="filteredUserList.length === 0" class="session-empty">
+                  暂无会话
+                </div>
+              </div>
+              <div class="session-section">
+                <div class="session-section-title">群聊</div>
+                <div
+                  v-for="item in filteredGroupList"
+                  :key="item.contact_id"
+                  class="session-item"
+                  @click="handleToChatGroup(item)"
                 >
-                  <el-sub-menu index="1">
-                    <template #title>
-                      <span class="sessionlist-title">群聊</span>
-                    </template>
-                  </el-sub-menu>
-                  <el-menu-item
-                    v-for="group in groupSessionList"
-                    :key="group.group_id"
-                    @click="handleToChatGroup(group)"
-                  >
-                    <img :src="group.avatar" class="sessionlist-avatar" />
-                    {{ group.group_name }}
-                  </el-menu-item>
-                </el-menu>
+                  <img :src="item.contact_avatar" class="sessionlist-avatar" />
+                  <div class="session-item-content">
+                    <div class="session-item-name">{{ item.contact_name }}</div>
+                    <div class="session-item-lastmsg">
+                      {{ item.last_message || "" }}
+                    </div>
+                  </div>
+                  <div v-if="item.unread_count > 0" class="session-item-badge">
+                    {{ item.unread_count > 99 ? "99+" : item.unread_count }}
+                  </div>
+                </div>
+                <div v-if="filteredGroupList.length === 0" class="session-empty">
+                  暂无群聊
+                </div>
               </div>
             </div>
           </div>
@@ -92,7 +96,7 @@
                       height="128"
                     >
                       <path
-                        d="M504.32 31.872a472.256 472.256 0 1 1 0 944.512 472.256 472.256 0 0 1 0-944.512z m0 63.36a408.96 408.96 0 1 0 0 817.856 408.96 408.96 0 0 0 0-817.92z m228.864 487.808v0.192a217.856 217.856 0 1 1-435.712 0V583.04h435.712zM370.496 321.536a73.024 73.024 0 1 1 0 146.048 73.024 73.024 0 0 1 0-146.048z m289.664 0a73.024 73.024 0 1 1 0 146.048 73.024 73.024 0 0 1 0-146.048z"
+                        d="M504.32 31.872a472.256 0 1 1 0 944.512 472.256 0 0 1 0-944.512z m0 63.36a408.96 0 1 0 0 817.856 408.96 0 0 0 0-817.92z m228.864 487.808v0.192a217.856 0 1 1-435.712 0V583.04h435.712zM370.496 321.536 0 1 1 0 146.048 73.024 0 0 1 0-146.048z m289.664 0a73.024 0 1 1 0 146.048 73.024 0 0 1 0-146.048z"
                         fill="#2c2c2c"
                         p-id="1556"
                       ></path>
@@ -149,7 +153,7 @@
                       height="128"
                     >
                       <path
-                        d="M695.04 194.32H98.08c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16h596.96c18.32 0 33.16 14.85 33.16 33.16 0 18.31-14.84 33.16-33.16 33.16zM298.97 393.3H96.19c-17.27 0-31.27-14-31.27-31.27v-3.79c0-17.27 14-31.27 31.27-31.27h202.78c17.27 0 31.27 14 31.27 31.27v3.79c-0.01 17.28-14.01 31.27-31.27 31.27zM230.74 592.29H98.08c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16h132.66c18.32 0 33.16 14.85 33.16 33.16 0.01 18.31-14.84 33.16-33.16 33.16zM230.74 791.28H98.08c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16h132.66c18.32 0 33.16 14.85 33.16 33.16 0.01 18.31-14.84 33.16-33.16 33.16zM728.2 691.78H595.55c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16H728.2c18.32 0 33.16 14.85 33.16 33.16 0.01 18.31-14.84 33.16-33.16 33.16z"
+                        d="M695.04 194.32H98.08c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16h596.96c18.32 0 33.16 14.85 33.16 33.16 0 18.31-14.84 33.16-33.16 33.16zM298.97 393.3H96.19c-17.27 0-31.27-31.27 31.27-31.27v-3.79c0-17.27 14-31.27 31.27-31.27h202.78c17.27 0 31.27 14 31.27 31.27v3.79c-0.01 17.28-14.01 31.27-31.27 31.27zM230.74 592.29H98.08c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16h132.66c18.32 0 33.16 14.85 33.16 33.16 0.01 18.31-14.84 33.16-33.16 33.16zM230.74 791.28H98.08c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16h132.66c18.32 0 33.16 14.85 33.16 33.16 0.01 18.31-14.84 33.16-33.16 33.16zM728.2 691.78H595.55c-18.32 0-33.16-14.85-33.16-33.16 0-18.32 14.85-33.16 33.16-33.16H728.2c18.32 0 33.16 14.85 33.16 33.16 0.01 18.31-14.84 33.16-33.16 33.16z"
                         p-id="5493"
                       ></path>
                       <path
@@ -182,7 +186,7 @@
                       height="128"
                     >
                       <path
-                        d="M394.666667 106.666667h448a74.666667 74.666667 0 0 1 74.666666 74.666666v448a74.666667 74.666667 0 0 1-74.666666 74.666667H394.666667a74.666667 74.666667 0 0 1-74.666667-74.666667V181.333333a74.666667 74.666667 0 0 1 74.666667-74.666666z m0 64a10.666667 10.666667 0 0 0-10.666667 10.666666v448a10.666667 10.666667 0 0 0 10.666667 10.666667h448a10.666667 10.666667 0 0 0 10.666666-10.666667V181.333333a10.666667 10.666667 0 0 0-10.666666-10.666666H394.666667z m245.333333 597.333333a32 32 0 0 1 64 0v74.666667a74.666667 74.666667 0 0 1-74.666667 74.666666H181.333333a74.666667 74.666667 0 0 1-74.666666-74.666666V394.666667a74.666667 74.666667 0 0 1 74.666666-74.666667h74.666667a32 32 0 0 1 0 64h-74.666667a10.666667 10.666667 0 0 0-10.666666 10.666667v448a10.666667 10.666667 0 0 0 10.666666 10.666666h448a10.666667 10.666667 0 0 0 10.666667-10.666666v-74.666667z"
+                        d="M394.666667 106.666667h448a74.666667 74.666667 0 0 1 74.666666 74.666666v448a74.666667 74.666667 0 0 1-74.666666 74.666667H394.666667a74.666667 74.666667 0 0 1-74.666667-74.666667V181.333333a74.666667 74.666667 0 0 1 74.666667-74.666666z m0 64a10.666667 70.666667 10.666667 0 0 0-10.666667 10.666666v448a10.666667 10.666667 0 0 0 10.666667 10.666666h448a10.666667 10.666667 0 0 0 10.666667-10.666666V181.333333a10.666667 10.666667 0 0 0-10.666667-10.666666H394.666667z m245.333333 597.333333a32 32 0 0 1 64 0v74.666667a74.666667 74.666667 0 0 1-74.666667 74.666667H181.333333a74.666667 74.666667 0 0 1-74.666666-74.666666V394.666667 74.666667a74.666667 74.666667 0 0 1 74.666667-74.666666h74.666667a32 32 32 0 0 1 0 64h-74.666667a10.666667 10.666667 0 0 0-10.666666 10.666667v448a10.666667 10.666667 0 0 0 10.666667 10.666666h448a10.666667 10.666667 0 0 0 10.666667-10.666666v-74.666667z"
                         fill="#000000"
                         p-id="3443"
                       ></path>
@@ -210,7 +214,7 @@
                       height="128"
                     >
                       <path
-                        d="M790.207709 1023.317561c-100.48917-0.05687-302.832389-33.89448-528.321671-260.00933C-57.722981 442.903032-9.212929 154.458736 25.02277 119.995557L114.194824 30.709763c19.506387-19.563257 47.372654-30.709763 76.319449-30.709763 28.662446 0 56.073753 10.975897 75.23892 30.141064l3.980896 4.606465 131.881373 176.865489c35.145618 52.377208 33.32578 108.564701-4.720205 146.781295l-39.012773 39.069643c11.942686 71.087415 42.31123 113.398645 87.181606 158.439632l5.686993 5.686993c51.865378 52.092858 96.678885 97.076974 174.021993 103.730756l38.899033-38.955903a99.522381 99.522381 0 0 1 71.883595-30.368544c24.169721 0 49.419971 8.41675 73.020993 24.340331l178.002888 133.303121c21.212485 14.558703 34.918138 38.728424 37.477285 66.253471a113.853604 113.853604 0 0 1-33.26891 89.513274l-89.058314 89.285793c-22.179274 22.236144-85.304898 24.624681-111.465068 24.624681h-0.056869zM190.628013 88.091525a19.278907 19.278907 0 0 0-13.421304 5.402644L94.290348 176.63801c-4.549595 22.861713-44.984116 247.554815 230.607575 523.885815 202.684439 203.196268 377.50261 233.507942 463.774297 233.507942 30.652893 0 50.898589-3.753416 58.121071-5.402643l80.982784-82.006443a26.160169 26.160169 0 0 0 7.67744-18.539598l-178.457847-135.293568c-4.151505-2.786627-12.568255-7.677441-20.302566-7.677441a13.478174 13.478174 0 0 0-10.009108 3.980895l-65.969121 66.196601-18.653338-0.17061c-125.227591-1.080529-193.812729-69.950017-254.322337-130.743974l-5.686993-5.630123c-52.490947-52.661557-102.763968-117.20893-115.445963-232.199934l-2.388537-21.155614L333.826502 295.609908c8.41675-8.41675 1.990448-22.349883-4.833944-32.586471L200.750861 91.105631a17.515939 17.515939 0 0 0-10.122848-3.014106z m350.603132 312.159058c-44.131067 0-79.959125-34.235699-79.959125-76.319449V170.609797c0-42.08375 35.828057-76.376319 79.959125-76.376319h292.311452c37.136066 0 68.812618 77.968677 77.627457 111.863156 8.1324-4.606465 14.103743-8.07553 15.923581-9.269799 8.75797-5.743863 18.937687-62.670665 29.458625-62.670665a53.457736 53.457736 0 0 1 25.36399 6.426303 56.130623 56.130623 0 0 1 29.003666 49.87493v121.303566c0 21.496834-11.373986 40.775741-29.572365 50.443629a52.547817 52.547817 0 0 1-24.681551 6.141953c-10.577807 0-21.041875-56.983672-29.970454-62.955015-2.331667-1.421748-8.814839-5.118294-17.686549-10.179718-11.089637 30.368544-41.515051 105.038765-75.40953 105.038765H541.231145z m283.326003-88.944574V183.178052H550.273464v128.127957h274.283684z"
+                        d="M790.207709 1023.317561c-100.48917-0.05687-302.832389-33.89448-528.321671-260.00933C-57.722981 442.903032-9.212929 154.458736 25.02277 119.995557L114.194824 30.709763c19.506387-19.563257 47.372354-30.709763 76.319449-30.709763 28.662446 0 56.073753 10.975897 75.23892 30.141064l3.980896 4.606465 131.881373 176.865489c35.145618 52.377208 33.32578 108.564701-4.720205 146.781295l-39.012773 39.069643c11.942686 71.087415 42.31123 113.398645 87.181606 158.439632l5.686993 5.686993c51.865378 52.092858 96.678885 97.076974 174.021993 103.730756l38.899033-38.955903a99.522381 0 0 1 71.883595-30.368544c24.169721 0 49.419971 8.41675 73.020993 24.340331l178.002888 133.303121c21.212485 14.5587f0 38.728424 37.477285 66.253471a113.853604 0 0 1-33.26891 89.513274l-89.058314 89.285793c-22.179274 22.236144-85.304898 24.624681-111.465068 24.624681h-0.056869zM190.628013 88.091525a19.278907 19.278907 0 0 0-13.421304 5.40264L94.290348 176.63801c-4.549595 22.861713-44.984116 247.554815 230.607575 523.885815 202.684439 203.196268 377.50261 233.507942 463.774297 233.507942 30.652893 0 50.898589-3.753416 58.121071-5.402643l80.982784-82.006443a26.160169 26.160169 0 0 0 7.67744-18.539598l-178.457847-135.293568c-4.151505-2.786627-12.568255-7.677441-20.302566-7.677441a13.478137 13.478907 0 0 0-10.009108 3.980895l-65.969121 66.196601-18.653338-0.17061c-125.227591-1.080529-193.812729-69.950017-254.322337-130.743974l-5.686993-5.630123c-52.490947-52.661557-102.763968-117.20893-115.445963-232.199934l-2.388537-21.155614L333.826502 295.609908c8.41675-8.41675 1.990448-22.349883-4.833944-32.586471L200.750861 91.1005631a17.515939 17.515939 0 0 0-10.122848-3.014106z m350.603132 312.159058c-44.131067 0-79.959125-34.235699-79.959125-76.319449V170.609797c0-42.08375 35.828057-76.376319 79.959125-76.376319h292.311452c37.136066 0 68.812618 77.968677 77.627457 111.863156 8.1324-4.606465 14.103743-8.07553 15.923581-9.269799 8.75797-5.743863 18.937687-62.670665 29.458625-62.670665a53.457737 53.457737 0 0 1 25.36399 6.426303 56.130623 56.130623 0 0 1 29.003666 49.87493v121.303566c0 21.496834-11.373986 40.775741-29.572365 50.443629a52.57817 52.57817 0 0 1-24.681551 6.141953c-10.577807 0-21.041875-56.983672-29.970454-62.955015-2.331667-1.421748-8.814839-5.118294-17.686549-10.179718-11.089637 30.36544-41.515051 105.038765-75.40953 105.038765H541.231145z m283.326003-88.944574V183.178052H550.273464v128h274.283684z"
                         fill="#666666"
                         p-id="4493"
                       ></path>
@@ -242,125 +246,111 @@
 </template>
 
 <script>
-import { reactive, toRefs, onMounted, ref } from "vue";
-import { onBeforeRouteUpdate, useRouter } from "vue-router";
-import { ElMessageBox, ElMessage } from "element-plus";
+import { reactive, toRefs, onMounted, onUnmounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import axios from "axios";
-import Modal from "@/components/Modal.vue";
 import NavigationModal from "@/components/NavigationModal.vue";
+import { onSocketOpen } from "@/store";
 export default {
-  name: "ContactList",
+  name: "SessionList",
   components: {
-    Modal,
     NavigationModal,
   },
-
   setup() {
     const router = useRouter();
     const store = useStore();
     const data = reactive({
       chatMessage: "",
-      chatName: "",
       userInfo: store.state.userInfo,
       contactSearch: "",
-      createGroupReq: {
-        owner_id: "",
-        name: "",
-        notice: "",
-        add_mode: null,
-        avatar: "",
-      },
-      ownListReq: {
-        owner_id: "",
-      },
-      userSessionList: [],
-      groupSessionList: [],
+      userDigestList: [], // 单聊会话摘要
+      groupDigestList: [], // 群聊会话摘要
     });
-    onMounted(() => {
-      // if (data.userInfo.avatar.startswith("/static")) {
-      //   data.userInfo.avatar = data.
-      // }
-    });
-    const handleToChatUser = (user) => {
-      router.push("/chat/" + user.user_id);
-    };
-    const handleToChatGroup = (group) => {
-      router.push("/chat/" + group.group_id);
+
+    // 拉取所有会话摘要（最后消息 + 未读数），后端已按最后消息时间倒序
+    const loadDigest = async () => {
+      try {
+        const rsp = await axios.post(
+          store.state.backendUrl + "/message/getOfflineDigest",
+          { user_id: data.userInfo.uuid }
+        );
+        const users = [];
+        const groups = [];
+        if (rsp.data.data) {
+          for (const item of rsp.data.data) {
+            if (
+              item.contact_avatar &&
+              !item.contact_avatar.startsWith("http")
+            ) {
+              item.contact_avatar =
+                store.state.backendUrl + item.contact_avatar;
+            }
+            if (item.contact_type === "U") {
+              users.push(item);
+            } else {
+              groups.push(item);
+            }
+          }
+        }
+        data.userDigestList = users;
+        data.groupDigestList = groups;
+      } catch (error) {
+        console.error(error);
+      }
     };
 
-    const handleShowUserSessionList = async () => {
+    // 进入会话前标记已读（清除未读数）
+    const markSessionRead = async (sessionId) => {
       try {
-        data.ownListReq.owner_id = data.userInfo.uuid;
-        const userSessionListRsp = await axios.post(
-          store.state.backendUrl + "/session/getUserSessionList",
-          data.ownListReq
+        await axios.post(
+          store.state.backendUrl + "/message/markSessionRead",
+          { user_id: data.userInfo.uuid, session_id: sessionId }
         );
-        if (userSessionListRsp.data.data) {
-          for (let i = 0; i < userSessionListRsp.data.data.length; i++) {
-            if (!userSessionListRsp.data.data[i].avatar.startsWith("http")) {
-              userSessionListRsp.data.data[i].avatar =
-                store.state.backendUrl + userSessionListRsp.data.data[i].avatar;
-            }
-          }
-        }
-        data.userSessionList = userSessionListRsp.data.data;
       } catch (error) {
         console.error(error);
       }
     };
-    const handleHideUserSessionList = () => {
-      data.userSessionList = [];
-    };
-    const handleShowGroupSessionList = async () => {
-      try {
-        data.ownListReq.owner_id = data.userInfo.uuid;
-        const groupSessionListRsp = await axios.post(
-          store.state.backendUrl + "/session/getGroupSessionList",
-          data.ownListReq
-        );
-        if (groupSessionListRsp.data.data) {
-          for (let i = 0; i < groupSessionListRsp.data.data.length; i++) {
-            if (!groupSessionListRsp.data.data[i].avatar.startsWith("http")) {
-              groupSessionListRsp.data.data[i].avatar =
-                store.state.backendUrl + groupSessionListRsp.data.data[i].avatar;
-            }
-          }
-        }
-        data.groupSessionList = groupSessionListRsp.data.data;
-      } catch (error) {
-        console.error(error);
+
+    const handleToChatUser = async (item) => {
+      if (item.session_id) {
+        await markSessionRead(item.session_id);
       }
+      router.push("/chat/" + item.contact_id);
     };
-    const handleHideGroupSessionList = () => {
-      data.groupSessionList = [];
+    const handleToChatGroup = async (item) => {
+      await markSessionRead(item.session_id);
+      router.push("/chat/" + item.contact_id);
     };
-    const handleContextMenu = (event, group) => {
-      event.preventDefault(); // 阻止默认的右键菜单
-      // 显示自定义的删除选项
-      ElMessageBox.confirm("确定要删除该会话组吗?", "提示", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        type: "warning",
-      })
-        .then(() => {
-          // 执行删除操作
-          this.deleteGroup(group);
-        })
-        .catch(() => {
-          // 取消删除操作
-        });
-    };
+
+    // 搜索框前端过滤
+    const filteredUserList = computed(() =>
+      data.userDigestList.filter((item) =>
+        item.contact_name.includes(data.contactSearch)
+      )
+    );
+    const filteredGroupList = computed(() =>
+      data.groupDigestList.filter((item) =>
+        item.contact_name.includes(data.contactSearch)
+      )
+    );
+
+    let unsubscribeOpen = null;
+    onMounted(() => {
+      loadDigest();
+      // 重连成功后自动刷新摘要
+      unsubscribeOpen = onSocketOpen(loadDigest);
+    });
+    onUnmounted(() => {
+      if (unsubscribeOpen) unsubscribeOpen();
+    });
+
     return {
       ...toRefs(data),
-      router,
+      filteredUserList,
+      filteredGroupList,
       handleToChatUser,
       handleToChatGroup,
-      handleShowUserSessionList,
-      handleHideUserSessionList,
-      handleShowGroupSessionList,
-      handleHideGroupSessionList,
-      handleContextMenu,
     };
   },
 };
@@ -382,77 +372,76 @@ export default {
   margin-right: 2px;
 }
 
-.el-menu {
-  background-color: rgb(252, 210.9, 210.9);
-  width: 100%;
+.contactlist-body {
+  overflow-y: auto;
 }
 
-.el-menu-item {
-  background-color: rgb(255, 255, 255);
-  height: 45px;
+.session-section {
+  margin-bottom: 8px;
 }
 
-.sessionlist-title {
+.session-section-title {
+  font-size: 13px;
+  color: #888;
+  padding: 6px 10px;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-h3 {
-  font-family: Arial, Helvetica, sans-serif;
-  color: rgb(69, 69, 68);
-}
-
-.modal-quit-btn-container {
-  height: 30%;
-  width: 100%;
+.session-item {
   display: flex;
-  flex-direction: row-reverse;
-}
-
-.modal-quit-btn {
-  background-color: rgba(255, 255, 255, 0);
-  color: rgb(229, 25, 25);
-  padding: 15px;
-  border: none;
+  align-items: center;
+  padding: 8px 10px;
   cursor: pointer;
-  position: fixed;
-  justify-content: center;
-  align-items: center;
+  background-color: #fff;
 }
 
-.modal-header {
-  height: 20%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  /*background-color:aqua;*/
+.session-item:hover {
+  background-color: #f5f5f5;
 }
 
-.modal-body {
-  height: 55%;
-  width: 400px;
+.session-item-content {
+  flex: 1;
+  margin-left: 8px;
+  overflow: hidden;
 }
 
-.modal-footer {
-  height: 25%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.session-item-name {
+  font-size: 14px;
+  color: #333;
 }
 
-.modal-header-title {
-  height: 70%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.session-item-lastmsg {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-item-badge {
+  background: #f56c6c;
+  color: #fff;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 11px;
+  padding: 0 4px;
+  margin-left: 8px;
+}
+
+.session-empty {
+  font-size: 12px;
+  color: #bbb;
+  padding: 10px;
+  text-align: center;
 }
 
 .sessionlist-avatar {
-  width: 30px;
-  height: 30px;
-  margin-right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
 }
 </style>

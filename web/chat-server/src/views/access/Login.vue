@@ -59,7 +59,7 @@ import axios from "axios";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useStore } from "vuex";
-import { startHeartbeat, stopHeartbeat, handlePong, isPongMessage } from "../../store";
+import { connectSocket } from "../../store";
 export default {
   name: "Login",
   setup() {
@@ -99,26 +99,8 @@ export default {
                 store.state.backendUrl + response.data.data.avatar;
             }
             store.commit("setUserInfo", response.data.data);
-            // 准备创建websocket连接
-            const wsUrl =
-              store.state.wsUrl + "/wss?client_id=" + response.data.data.uuid;
-            console.log(wsUrl);
-            store.state.socket = new WebSocket(wsUrl);
-            store.state.socket.onopen = () => {
-              console.log("WebSocket连接已打开");
-              startHeartbeat(store.state.socket, response.data.data.uuid);
-            };
-            store.state.socket.onmessage = (message) => {
-              if (isPongMessage(message.data)) { handlePong(); return; }
-              console.log("收到消息：", message.data);
-            };
-            store.state.socket.onclose = () => {
-              console.log("WebSocket连接已关闭");
-              stopHeartbeat();
-            };
-            store.state.socket.onerror = () => {
-              console.log("WebSocket连接发生错误");
-            };
+            // 通过统一入口建立连接（内含心跳、断线重连）
+            connectSocket(store);
             router.push("/chat/sessionlist");
           } catch (error) {
             console.log(error);

@@ -120,6 +120,7 @@ import { useStore } from "vuex";
 import { ElMessage } from "element-plus";
 import { reactive, toRefs } from "vue";
 import axios from "axios";
+import { disconnectSocket } from "../store";
 export default {
   name: "NavigationModal",
   setup() {
@@ -142,14 +143,14 @@ export default {
       router.push("/manager");
     };
     const logout = async () => {
-      store.commit("cleanUserInfo");
-      const req = {
-        owner_id: data.userInfo.uuid,
-      };
+      const ownerId = data.userInfo.uuid;
+      // 主动关闭连接，不触发重连
+      disconnectSocket(store);
       const rsp = await axios.post(
         store.state.backendUrl + "/user/wsLogout",
-        req
+        { owner_id: ownerId }
       );
+      store.commit("cleanUserInfo");
       if (rsp.data.code == 200) {
         router.push("/login");
         ElMessage.success(rsp.data.message);
